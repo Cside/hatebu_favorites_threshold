@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use utf8;
 use feature qw(state);
+use Encode;
 use Sub::Retry;
 use LWP::UserAgent;
 use HTTP::Status qw(:constants);
@@ -10,18 +11,63 @@ use Class::Accessor::Lite (
     new => 1,
 );
 use URI::Template::Restrict;
+use Web::Query;
+use XML::Feed;
+use XML::Feed::Entry;
 
 use TheHand::Exception;
 use TheHand::Logger;
 use TheHand::Constants qw(HATENA_BOOKMARK_URI_TEMAPLTE);
 
-sub to_rss {
+sub to_atom {
     my ($self, %params) = @_;
     my ($username, $thredhold) = @params{qw(username threshold)};
 
-    my $data = _scrape($username, $thredhold);
+    my $html = _scrape($username, $thredhold);
+    my $data = _parse_html($html);
 
-    return $data;
+    return _to_atom($data, $username);
+}
+
+sub _parse_html {
+    my ($html) = @_;
+
+    my $result = [];
+    Web::Query->new_from_html($html)->find('ul.main-entry-list > li')->each(sub {
+        my $h3 = $_->find('h3.entry-title');
+        my $entry_link = $h3->find('a.entry-link');
+    
+        push @$result, {
+            id        => $_->attr('data-eid'),
+            title     => $entry_link->text,
+            url       => $entry_link->attr('href'),
+            bookmarks => $h3->find('span.users span')->text,
+            favorites => $_->find('ul.entry-comment > li')->size,
+        };
+    });
+
+    return $result;
+}
+
+sub _to_atom {
+    my ($data, $username) = @_;
+
+    my $feed = XML::Feed->new('Atom');
+    $feed->title("$username のお気に入り");
+
+    for my $data (@$data) {
+        my $entry = XML::Feed::Entry->new('Atom');
+        $entry->title(sprintf '%s (%dusers, %dfavs)', @$data{qw(title bookmarks favorites)});
+        $entry->id($data->{id});
+    
+        # XXX $entry->modified($modified) スルー中
+    
+        $entry->link($data->{url});
+        $feed->add_entry($entry);
+    }
+
+    # return encode_utf8 $feed->as_xml;
+    return $feed->as_xml;
 }
 
 sub _scrape {
@@ -61,7 +107,7 @@ sub _scrape {
         TheHand::Exception->throw(
             'crit',
             $res->code,
-            $res->message,
+            sprintf('Failed to GET %s. %s.', $uri, $res->message),
         );
     }
 

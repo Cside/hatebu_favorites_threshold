@@ -21,20 +21,14 @@ sub to_app {
     my $req = Plack::Request->new($env);
     return [200, [], []] if $req->path_info eq '/favicon.ico';
 
-    my $rss = eval {
+    my $atom = eval {
         my ($username, $thredhold, $error_res) = _extract_req_params($req);;
         return $error_res if $error_res;
 
-        my $rss = TheHand::Model->new->to_rss(
+        TheHand::Model->new->to_atom(
             username  => $username,
             threshold => $thredhold,
         );
-
-        use Data::Dumper;
-        local $Data::Dumper::Indent   = 1;
-        local $Data::Dumper::Terse    = 1;
-        local $Data::Dumper::Sortkeys = 1;
-        print STDERR Dumper $rss;
     };
 
     if (my $error = $@) {
@@ -44,13 +38,13 @@ sub to_app {
                 $error->message,
             );
         }
-        return create_plain_text_res(HTTP_INTERNAL_SERVER_ERROR);
+        return create_plain_text_res(HTTP_INTERNAL_SERVER_ERROR, $error);
     }
 
     my $res = Plack::Response->new(200);
 
-    $res->content_type('text/plain');
-    $res->body("");
+    $res->content_type('application/atom+xml; charset=utf-8');
+    $res->body($atom);
 
     return $res->finalize;
 };
@@ -64,14 +58,10 @@ sub _extract_req_params {
 
     my $username = $params{username};
     unless ($username) {
-        warnf('Invalid params. req path: %s', $req->uri->path_query);
-        return (
-            undef,
-            undef,
-            create_plain_text_res(HTTP_BAD_REQUEST, sprintf(<<"...", ACCEPTABLE_URI_TEMPLATE)),
-Usage:
-    GET %s
-...
+        TheHand::Exception->throw(
+            'warn',
+            HTTP_BAD_REQUEST,
+            "Usage:\n\tGET " . ACCEPTABLE_URI_TEMPLATE,
         );
     }
 
