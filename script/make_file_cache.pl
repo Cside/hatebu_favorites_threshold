@@ -8,6 +8,8 @@ use lib 'lib';
 use autodie;
 use Time::Seconds qw(ONE_DAY);
 use Encode;
+use Path::Tiny;
+use lib path(__FILE__)->parent->parent->child('lib')->stringify;
 
 use TheHand::Model;
 use TheHand::Cache::File;

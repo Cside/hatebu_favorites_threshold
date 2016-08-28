@@ -7,6 +7,7 @@ requires 'DateTime';
 requires 'Encode';
 requires 'HTTP::Status';
 requires 'LWP::UserAgent';
+requires 'Path::Tiny';
 requires 'Plack::Builder';
 requires 'Plack::Request';
 requires 'Plack::Response';
