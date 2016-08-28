@@ -34,7 +34,7 @@ sub to_atom {
 
     my $data = _parse_html($html);
 
-    return _to_atom($data, $username);
+    return _to_atom($data, $username, $threshold);
 }
 
 sub _get_from_cache {
@@ -77,10 +77,10 @@ sub _parse_html {
 }
 
 sub _to_atom {
-    my ($data, $username) = @_;
+    my ($data, $username, $threshold) = @_;
 
     my $feed = XML::Feed->new('Atom');
-    $feed->title("$username のお気に入り");
+    $feed->title("$username のお気に入り (${threshold}favs)");
     $feed->author($username);
 
     for my $data (@$data) {
@@ -111,17 +111,8 @@ sub scrape {
         threshold => $threshold,
     );
 
-    my $res;
-    retry 1, 1, sub {
-        infof("GET $uri");
-        $res = $client->get($uri);
-    }, sub {
-        my $needs_retry = !$res->is_success;
-        if ($needs_retry) {
-            critf('Failed to get %s. error: %s', $uri, $res->status_line);
-        }
-        return $needs_retry
-    };
+    infof("GET $uri");
+    my $res =  $client->get($uri);
 
     unless ($res->is_success) {
         if ($res->code == HTTP_FORBIDDEN) {
