@@ -3,6 +3,7 @@ requires 'Class::Accessor::Lite';
 requires 'Constant::Exporter';
 requires 'Data::Dumper::OneLine';
 requires 'Data::Util';
+requires 'DateTime';
 requires 'Encode';
 requires 'HTTP::Status';
 requires 'LWP::UserAgent';

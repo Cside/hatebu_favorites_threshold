@@ -20,7 +20,7 @@ my $cache = TheHand::Cache::File->get_instance;
 
 if ($method eq 'set') {
     my $decoded_html = TheHand::Model::scrape($username, $threshold);
-    $cache->set($key, encode_utf8($decoded_html), ONE_DAY);
+    $cache->set($key, encode_utf8($decoded_html), ONE_DAY) if $decoded_html;
 } else {
     my $encoded_html = $cache->get("favorites_html:$username:$threshold");
     say $encoded_html;

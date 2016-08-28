@@ -15,6 +15,7 @@ use Web::Query;
 use XML::Feed;
 use XML::Feed::Entry;
 use TheHand::Cache::File;
+use DateTime;
 
 use TheHand::Exception;
 use TheHand::Logger;
@@ -53,6 +54,13 @@ sub _parse_html {
     Web::Query->new_from_html($html)->find('ul.main-entry-list > li')->each(sub {
         my $h3 = $_->find('h3.entry-title');
         my $entry_link = $h3->find('a.entry-link');
+        my @updated_at;
+
+        my $comments = $_->find('ul.entry-comment li')->each(sub {
+            my $updated_at = $_->attr('data-epoch');
+            push @updated_at, $updated_at if $updated_at;
+        });
+        @updated_at = sort { $a <=> $b } @updated_at;
     
         push @$result, {
             id        => $_->attr('data-eid'),
@@ -60,6 +68,8 @@ sub _parse_html {
             url       => $entry_link->attr('href'),
             bookmarks => $h3->find('span.users span')->text,
             favorites => $_->find('ul.entry-comment > li')->size,
+            published => $updated_at[0],
+            updated   => $updated_at[-1],
         };
     });
 
@@ -71,19 +81,19 @@ sub _to_atom {
 
     my $feed = XML::Feed->new('Atom');
     $feed->title("$username のお気に入り");
+    $feed->author($username);
 
     for my $data (@$data) {
         my $entry = XML::Feed::Entry->new('Atom');
         $entry->title(sprintf '%s (%dusers, %dfavs)', @$data{qw(title bookmarks favorites)});
         $entry->id($data->{id});
-    
-        # XXX $entry->modified($modified) スルー中
-    
         $entry->link($data->{url});
+        $entry->issued(DateTime->from_epoch( epoch => $data->{published} ));
+        $entry->modified(DateTime->from_epoch( epoch => $data->{updated} ));
+
         $feed->add_entry($entry);
     }
 
-    # return encode_utf8 $feed->as_xml;
     return $feed->as_xml;
 }
 
