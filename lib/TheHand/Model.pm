@@ -14,6 +14,7 @@ use URI::Template::Restrict;
 use Web::Query;
 use XML::Feed;
 use XML::Feed::Entry;
+use TheHand::Cache::File;
 
 use TheHand::Exception;
 use TheHand::Logger;
@@ -21,12 +22,28 @@ use TheHand::Constants qw(HATENA_BOOKMARK_URI_TEMAPLTE);
 
 sub to_atom {
     my ($self, %params) = @_;
-    my ($username, $thredhold) = @params{qw(username threshold)};
+    my ($username, $threshold) = @params{qw(username threshold)};
 
-    my $html = _scrape($username, $thredhold);
+    my $html = _get_from_cache($username, $threshold);
+    TheHand::Exception->throw(
+        'crit',
+        HTTP_INTERNAL_SERVER_ERROR,
+        "cache is not found. username: $username, threshold: $threshold",
+    ) unless $html;
+
     my $data = _parse_html($html);
 
     return _to_atom($data, $username);
+}
+
+sub _get_from_cache {
+    my ($username, $threshold) = @_;
+
+    my $key   = "favorites_html:$username:$threshold";
+    my $cache = TheHand::Cache::File->get_instance;
+
+    my $encoded_html = $cache->get("favorites_html:$username:$threshold");
+    return $encoded_html ? decode_utf8($encoded_html) : undef;
 }
 
 sub _parse_html {
@@ -70,7 +87,7 @@ sub _to_atom {
     return $feed->as_xml;
 }
 
-sub _scrape {
+sub scrape {
     my ($username, $threshold) = @_;
 
     state $client = LWP::UserAgent->new(
@@ -85,7 +102,7 @@ sub _scrape {
     );
 
     my $res;
-    retry 2, 1, sub {
+    retry 1, 1, sub {
         infof("GET $uri");
         $res = $client->get($uri);
     }, sub {
