@@ -112,8 +112,18 @@ sub scrape {
         threshold => $threshold,
     );
 
-    infof("GET $uri");
-    my $res =  $client->get($uri);
+
+    my $res;
+    retry 2, 1, sub {
+        infof("GET $uri");
+        $res = $client->get($uri);
+    }, sub {
+        my $needs_retry = !$res->is_success;
+        if ($needs_retry) {
+            critf('Failed to get %s. error: %s', $uri, $res->status_line);
+        }
+        return $needs_retry
+    };
 
     unless ($res->is_success) {
         if ($res->code == HTTP_FORBIDDEN) {
