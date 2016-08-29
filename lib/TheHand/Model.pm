@@ -76,6 +76,7 @@ sub _parse_html {
     return $result;
 }
 
+# TODO これは view に移すべき
 sub _to_atom {
     my ($data, $username, $threshold) = @_;
 
@@ -101,7 +102,7 @@ sub scrape {
     my ($username, $threshold) = @_;
 
     state $client = LWP::UserAgent->new(
-        timeout => 50,
+        timeout => 120,
         agent => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36',
     );
 
